@@ -13,19 +13,16 @@ A little Script i'm working on for compressing films into h265 encoded copies.  
 <br>Resources\MP4Box.exe        -- Used to build MP4 (may be added as an option for powershell gui, needed for abandoned mp4 vbs)
 
 
-==================  Requirements  ==================
-====================================================
+=========  Requirements 
 
 1 - TheRenamer (amazing tool for renaming movies and TV shows to proper naming conventions) http://therenamer.com/
 2 - Kodi (or some other way of gathering coverart)
 3 - Media files
 
-==================  Folder Layout Requirements  ==================
-==================================================================
+=========  Folder Layout Requirements
 
 
-==================  Movies  ==================
-==============================================
+========= Movies
 
 .\MovieFolder\moviename1.mkv
 .\MovieFolder\moviename1-poster.jpg
@@ -38,8 +35,8 @@ Ex.	.\Guardians of the Galaxy (2014 PG-13).mkv
 	.\The Martian (2015 PG-13).mkv
 	.\The Martian (2015 PG-13)-poster.jpg
 
-==================  TV Shows  ==================
-================================================
+=========  TV Shows
+
 TV show folders MUST be
 .\TV Show Name\Season 01\S01E01EpisodeName.mkv
 .\TV Show Name\Season 02\S02E01EpisodeName.mp4
@@ -49,8 +46,8 @@ TV show folders MUST be
 ex.	.\Archer\Season 01\S01E01.Mole Hunt.mkv
 	.\Archer\season01-poster.jpg
 
-==================  Fixing File Names (TV Shows and Movies)  ==================
-===============================================================================
+=========  Fixing File Names (TV Shows and Movies)
+
 
 
 1- Install TheRenamer from http://therenamer.com/
@@ -65,8 +62,7 @@ ex.	.\Archer\Season 01\S01E01.Mole Hunt.mkv
 5 - With Movies Toggle selected you can do this with the movies as well.  all things must be in order...especially or movies...or it won't work.
 
 
-==================  Getting Cover Art Via Kodi  ==================
-==================================================================
+=========  Getting Cover Art Via Kodi
 
 1- Install Kodi and point kodi to your TV Shows and your Movies directories
 2- View all the Seasons for TV Shows so as to force download the images. (go into the TV Show so as to see Season 01, 02, 03, etc)
@@ -79,13 +75,11 @@ ex.	.\Archer\Season 01\S01E01.Mole Hunt.mkv
 9- depending on how large your library is this may take a minute...just wait.
 10- now all covers should be exported nicely for converting!
 
-==================  Converting!  ==================
-===================================================
+=========  Converting!
 
 This part is SUPER easy!  
 
-==================  For Movies  ==================
-==================================================
+=========  For Movies
 
 1- Copy "!HEVC_Rebuild_###.exe" to the Movie Folder where your movies and cover art is located
 
@@ -100,8 +94,7 @@ Ex.	.\Movies\!HEVC_Rebuild_###.exe
 3- Wait until it completes.  This can take a LONG time depending on your computer and the movie file.
 	(I've had some conversions take a couple weeks on my server)
 
-==================  For TV Shows ==================
-===================================================
+========= For TV Shows
 
 1- Copy "!HEVC_Rebuild_###.exe" to the root of the TV Series you wish to Convert/compress
 
@@ -114,16 +107,14 @@ ex.	.\Archer\Season 01\S01E01.Mole Hunt.mkv
 	(If only Administrator has rights to the directory..then run as admin)
 3- Wait until it completes.  This can take a LONG time depending on your computer and the movie file.
 	(I've had some conversions take a couple weeks on my server)
-
-==================  Notes  ==================
-=============================================
+	
+=========  Notes 
 - existing .mp4 files will be renamed to old_Filename.mp4
 - Accent Characters may not properly convert
 - I have not worked in Audio Delay yet....I need a file with this to experiment with.
 - Bulk Rename Utility can be VERY helpful with incorrectly named tv series that aren't working with theRenamer
 	URL: http://www.bulkrenameutility.co.uk/Main_Intro.php
 - If you have an issue then please provide as MUCH information as you can about the file and potentially the file
-- Check back for udpates -  http://v1x0r.com/downloads/mp4rebuild/
 	(I will have to add an update function at some point)
 - if you edit my code or have suggestions for it, please feel free to share with me.  
 	I know it currently is messy...some parts are notes.
