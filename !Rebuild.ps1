@@ -8,6 +8,7 @@ $MKVINFO = $StrResourceDir + "\Mkvinfo.exe"
 $MKVPROPEDIT = $StrResourceDir + "\mkvpropedit.exe"
 $MEDIAINFO = $StrResourceDir + "\MediaInfo.exe"
 $FFMPEG = $StrResourceDir + "\FFmpeg.exe"
+$DefaultPoster = $StrResourceDir + "\Default_Poster.jpg"
 $ExcludeList = ("*.exe", "*.dll", "*.jpg", "*.png", "*.xml", "*.nfo")
 Clear-Host
 
@@ -33,7 +34,8 @@ function TraverseFolders
     {
         if (!(("old_" + $Film.Name) | Test-Path))
             {
-                RenameMKV -MediaInput $Film -Type "Movie"
+                $MediaOut = ($StrHomeDir + $Film.BaseName + ".mkv")
+                RenameMKV -MediaInput $Film -MediaOut $MediaOut -Type "Movie"
                 #Get-Item -Path $Film.FullName -Filter 
             }
     }
@@ -50,8 +52,9 @@ function TraverseFolders
         {
             If (!(Test-Path ($Season.fullname + "\" + "old_" + $Episode.name)))
                {
-               # write-output $Episodes.count  
-               RenameMKV -MediaInput $Episode -Type "TV"
+               # write-output $Episodes.count
+               $MediaOut = ('"' + $Season.fullname + "\" + $Episode.BaseName + ".mkv" + '"')
+               RenameMKV -MediaInput $Episode -MediaOut $MediaOut -Type "TV"
                }
             }
         }
@@ -67,11 +70,12 @@ function RenameMKV
     Determines if Media Needs to be renamed
     #>
     
-   Param($MediaInput,$Type)
+   Param($MediaInput,$MediaOut,$Type)
+  # write-output $Mediaout
    if ($MediaInput.Extension -eq ".mkv")
    {
         $OriginalInput = ("old_" + $MediaInput.name)
-      <# $MediaInput = Rename-Item $MediaInput.FullName $OriginalInput
+      <#$MediaInput = Rename-Item $MediaInput.FullName $OriginalInput
         #Write-Output $OriginalInput
         if (Test-Path $OriginalInput)
         {        
@@ -80,7 +84,7 @@ function RenameMKV
         $MediaInput = Get-Item ($Season.FullName + "\" + $OriginalInput)
         }
         #>
-        Get-Poster -MediaInput $MediaInput -Type $Type
+        Get-Poster -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
     }
 }
 
@@ -94,27 +98,34 @@ function Get-Poster
     MovieName-poster.jpg & SeasonXX.jpg in working dir.
     #>
 
-    Param($MediaInput,$Type)
+    Param($MediaInput,$MediaOut,$Type)
     $MoviePoster = ($MediaInput.BaseName + "-poster.jpg")
     $SeasonPoster = (($Season.BaseName + "-poster.jpg").ToLower().replace(" ",""))
     If ($Type -eq "Movie")
         {
         if (Test-Path $MoviePoster)
             {
-            ParseKodiNFO -MediaInput $MediaInput -Type $Type
+            $Poster = $MoviePoster
+            ParseKodiNFO -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }Else{
-            Write-OutPut ("ERROR " + "'" + $MoviePoster + "'" + " Not Present")
+            Write-OutPut ("ERROR " + "'" + $MoviePoster + "'" + " Not Present, Using Default")
+            $Poster = $DefaultPoster
+            ParseKodiNFO -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }
         }
     If ($Type -eq "TV")
         {
         if (Test-Path $SeasonPoster)
             {
-            ParseKodiNFO -MediaInput $MediaInput -Type $Type
+            $Poster = $SeasonPoster
+            ParseKodiNFO -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }Else{
-            Write-OutPut ("ERROR " + "'" + $SeasonPoster + "'" + " Not Present")
+            Write-OutPut ("ERROR " + "'" + $SeasonPoster + "'" + " Not Present, Using Default")
+            $Poster = $DefaultPoster
+            ParseKodiNFO -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }
         }
+        
 }
 
 #========================================================================================
@@ -128,7 +139,7 @@ function ParseKodiNFO
     Into the Media File.
     #>
 
-    Param($MediaInput,$Type)
+    Param($MediaInput,$MediaOut,$Type)
     $Comment = "Brought To you By V1x0r"
     [string[]]$array = @("TITLE","SHOWTITLE","SEASON","EPISODE","PLOT","TAGLINE","MPAA","PREMIERED","STUDIO","GENRE")
     $MovieNFO = ($MediaInput.BaseName + ".nfo")
@@ -170,7 +181,7 @@ function ParseKodiNFO
             $VideoxmlOutput.WriteEndDocument()
             $VideoxmlOutput.Flush()
             $VideoxmlOutput.Close()
-            Compress_Media -MediaInput $MediaInput -Type $Type
+            Compress_Media -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }Else{
             $VideoxmlOutput.WriteStartElement('Tag')
             $VideoxmlOutput.writestartelement('Simple')
@@ -186,7 +197,7 @@ function ParseKodiNFO
             $VideoxmlOutput.Flush()
             $VideoxmlOutput.Close()
             Write-OutPut ("ERROR " + "'" + $MovieNFO + "'" + " Not Present - Created Basic xml")
-            Compress_Media -MediaInput $MediaInput -Type $Type
+            Compress_Media -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }
         }
     If ($Type -eq "TV")
@@ -223,7 +234,7 @@ function ParseKodiNFO
             $EpisodexmlOutput.WriteEndDocument()
             $EpisodexmlOutput.Flush()
             $EpisodexmlOutput.Close()
-            Compress_Media -MediaInput $MediaInput -Type $Type
+            Compress_Media -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }Else{
             $EpisodexmlOutput.WriteStartElement('Tag')
             $EpisodexmlOutput.writestartelement('Simple')
@@ -239,7 +250,7 @@ function ParseKodiNFO
             $EpisodexmlOutput.Flush()
             $EpisodexmlOutput.Close()
             Write-OutPut ("ERROR " + "'" + $EpisodeNFO + "'" + " Not Present - Created Basic xml")
-            Compress_Media -MediaInput $MediaInput -Type $Type
+            Compress_Media -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }
         }
 }
@@ -253,7 +264,26 @@ function Compress_Media
     .SYNOPSIS
     Compresses the provided media files into H265 inside of matroska
     #>
-    Param($MediaInput,$Type)
+    Param($MediaInput,$MediaOut,$Type)
+    $argument = ('`"' + $MediaInput.fullname + '`"')
+    $CleanMKV = "`"--delete-attachment mime-type:image/jpeg --tags all: --edit info --set title=`""
+    $p = Start-Process $MKVPROPEDIT -ArgumentList "`"$Mediainput.Fullname`"","`"--delete-attachment mime-type:image/jpeg --tags all: --edit info --set title=`"" -wait -PassThru -NoNewWindow
+    
+    $p.HasExited
+    $p.ExitCode
+    
+    
+    #write-output $argument
+    #write-output $CleanMKV
+
+$argument = ('"' + $MediaInput.fullname + '"')
+$arg1 = " -i "
+$argument2 = "D:\Video\Test\test.mkv"
+#Start-Process $FFMPEG -ArgumentList $arg1,$Argument,$argument2 -wait -PassThru -NoNewWindow
+#write-output $test
+#write-output $argument
+#write-output $argument2
+#write-output $MediaOut
 }
 
 #========================================================================================
