@@ -2,16 +2,15 @@ clear-history
 $StrHomeDir = ($(get-location).Path + "\");
 $StrResourceDir = ($StrHomeDir + "Resources");
 $MainScript = ($StrHomeDir + "!Rebuild.ps1");
-$MP4BOX = $StrResourceDir + "\MP4Box.exe"
-$MKVEXTRACT = $StrResourceDir + "\mkvextract.exe"
-$MKVINFO = $StrResourceDir + "\Mkvinfo.exe"
-$MKVPROPEDIT = $StrResourceDir + "\mkvpropedit.exe"
-$MEDIAINFO = $StrResourceDir + "\MediaInfo.exe"
-$FFMPEG = $StrResourceDir + "\FFmpeg.exe"
-$DefaultPoster = $StrResourceDir + "\Default_Poster.jpg"
-$ExcludeList = ("*.exe", "*.dll", "*.jpg", "*.png", "*.xml", "*.nfo")
+$MP4BOX = $StrResourceDir + "\MP4Box.exe";
+$MKVEXTRACT = $StrResourceDir + "\mkvextract.exe";
+$MKVINFO = $StrResourceDir + "\Mkvinfo.exe";
+$MKVPROPEDIT = $StrResourceDir + "\mkvpropedit.exe";
+$MEDIAINFO = $StrResourceDir + "\MediaInfo.exe";
+$FFMPEG = $StrResourceDir + "\FFmpeg.exe";
+$DefaultPoster = $StrResourceDir + "\Default_Poster.jpg";
+$ExcludeList = ("*.exe", "*.dll", "*.jpg", "*.png", "*.xml", "*.nfo");
 Clear-Host
-
 #ToDo - Check Directory Structure before running?
 
 #========================================================================================
@@ -34,8 +33,8 @@ function TraverseFolders
     {
         if (!(("old_" + $Film.Name) | Test-Path))
             {
-                $MediaOut = ($StrHomeDir + $Film.BaseName + ".mkv")
-                RenameMKV -MediaInput $Film -MediaOut $MediaOut -Type "Movie"
+                $MediaOut = ('"' + $StrHomeDir + $Film.BaseName + ".mkv" + '"')
+                Get-Poster -MediaInput $Film -MediaOut $MediaOut -Type "Movie"
                 #Get-Item -Path $Film.FullName -Filter 
             }
     }
@@ -54,38 +53,10 @@ function TraverseFolders
                {
                # write-output $Episodes.count
                $MediaOut = ('"' + $Season.fullname + "\" + $Episode.BaseName + ".mkv" + '"')
-               RenameMKV -MediaInput $Episode -MediaOut $MediaOut -Type "TV"
+               Get-Poster -MediaInput $Episode -MediaOut $MediaOut -Type "TV"
                }
             }
         }
-}
-
-#========================================================================================
-#============================== Rename MKV For Backup ===================================
-#========================================================================================
-function RenameMKV
-{
-    <#
-    .SYNOPSIS
-    Determines if Media Needs to be renamed
-    #>
-    
-   Param($MediaInput,$MediaOut,$Type)
-  # write-output $Mediaout
-   if ($MediaInput.Extension -eq ".mkv")
-   {
-        $OriginalInput = ("old_" + $MediaInput.name)
-      <#$MediaInput = Rename-Item $MediaInput.FullName $OriginalInput
-        #Write-Output $OriginalInput
-        if (Test-Path $OriginalInput)
-        {        
-        $MediaInput = Get-Item $OriginalInput
-        } Else {
-        $MediaInput = Get-Item ($Season.FullName + "\" + $OriginalInput)
-        }
-        #>
-        Get-Poster -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
-    }
 }
 
 #========================================================================================
@@ -99,8 +70,8 @@ function Get-Poster
     #>
 
     Param($MediaInput,$MediaOut,$Type)
-    $MoviePoster = ($MediaInput.BaseName + "-poster.jpg")
-    $SeasonPoster = (($Season.BaseName + "-poster.jpg").ToLower().replace(" ",""))
+    $MoviePoster = ($StrHomeDir + $MediaInput.BaseName + "-poster.jpg")
+    $SeasonPoster = ($StrHomeDir + ($Season.BaseName + "-poster.jpg").ToLower().replace(" ",""))
     If ($Type -eq "Movie")
         {
         if (Test-Path $MoviePoster)
@@ -147,6 +118,7 @@ function ParseKodiNFO
     If ($Type -eq "Movie")
         {
         $VideoxmlOutput = New-Object System.XML.XmlTextWRiter(($StrHomeDir + $MediaInput.BaseName + ".xml"),$Null)
+        $OutComment = ($StrHomeDir + $MediaInput.BaseName + ".xml")
         $VideoxmlOutput.Formatting = 'Indented'
         $VideoxmlOutput.Indentation = 1
         $VideoxmlOutput.IndentChar = "`t"
@@ -154,7 +126,6 @@ function ParseKodiNFO
         $VideoxmlOutput.WriteStartElement('Tags')
         if (Test-Path $MovieNFO)
             {
-
             [xml]$MovieNFOXML = Get-Content $MovieNFO
             $MovieNFOArr = Select-XML -XML $MovieNFOXML -XPath "//movie"| Select-Object -ExpandProperty Node
             #$MovieNFOArr.actor.name # | Select-Object "title"
@@ -162,7 +133,7 @@ function ParseKodiNFO
                 {
                 if ($MovieNFOArr.$item -ne $null)
                     {
-                    $MovieNFOContent = $MovieNFOArr.$item.replace("&","and").replace("Rated ", "").trim()
+                    $MovieNFOContent = $MovieNFOArr.$item.replace("&","and").replace("Rated ", "").trim() -join ', '
                     $item = $item.replace("PLOT","SYNOPSIS").replace("MPAA","LAW_RATING").replace("TAGLINE","SUMMARY").replace("PREMIERED","DATE_RELEASED").replace("STUDIO","PRODUCTION_STUDIO")
                     $VideoxmlOutput.WriteStartElement('Tag')
                     $VideoxmlOutput.writestartelement('Simple')
@@ -181,7 +152,7 @@ function ParseKodiNFO
             $VideoxmlOutput.WriteEndDocument()
             $VideoxmlOutput.Flush()
             $VideoxmlOutput.Close()
-            Compress_Media -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
+            Check_Codec -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }Else{
             $VideoxmlOutput.WriteStartElement('Tag')
             $VideoxmlOutput.writestartelement('Simple')
@@ -197,13 +168,13 @@ function ParseKodiNFO
             $VideoxmlOutput.Flush()
             $VideoxmlOutput.Close()
             Write-OutPut ("ERROR " + "'" + $MovieNFO + "'" + " Not Present - Created Basic xml")
-            Compress_Media -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
+            Check_Codec -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }
         }
     If ($Type -eq "TV")
         {
         $EpisodexmlOutput = New-Object System.XML.XmlTextWRiter(($Season.fullname + "\" + $Episode.BaseName + ".xml"),$Null)
-        $Episodexml = ($Season.fullname + "\" + $Episode.BaseName + ".xml")
+        $OutComment = ($Season.fullname + "\" + $Episode.BaseName + ".xml")
         $EpisodexmlOutput.Formatting = 'Indented'
         $EpisodexmlOutput.Indentation = 1
         $EpisodexmlOutput.IndentChar = "`t"
@@ -217,7 +188,7 @@ function ParseKodiNFO
                 {
                 if ($EpisodeNFOArr.$item -ne "")
                     {
-                    $EpisodeNFOContent = $EpisodeNFOArr.$item.replace("&","and").replace("Rated ", "").trim()
+                    $EpisodeNFOContent = $EpisodeNFOArr.$item.replace("&","and").replace("Rated ", "").trim() -join ', '
                     $item = $item.replace("PLOT","SYNOPSIS").replace("MPAA","LAW_RATING").replace("TAGLINE","SUMMARY").replace("PREMIERED","DATE_RELEASED").replace("STUDIO","PRODUCTION_STUDIO")
                     $EpisodexmlOutput.WriteStartElement('Tag')
                     $EpisodexmlOutput.writestartelement('Simple')
@@ -234,7 +205,7 @@ function ParseKodiNFO
             $EpisodexmlOutput.WriteEndDocument()
             $EpisodexmlOutput.Flush()
             $EpisodexmlOutput.Close()
-            Compress_Media -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
+            Check_Codec -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }Else{
             $EpisodexmlOutput.WriteStartElement('Tag')
             $EpisodexmlOutput.writestartelement('Simple')
@@ -250,9 +221,59 @@ function ParseKodiNFO
             $EpisodexmlOutput.Flush()
             $EpisodexmlOutput.Close()
             Write-OutPut ("ERROR " + "'" + $EpisodeNFO + "'" + " Not Present - Created Basic xml")
-            Compress_Media -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
+            Check_Codec -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
             }
         }
+}
+
+#========================================================================================
+#=============================  Determine Video Codec ===================================
+#========================================================================================
+function Check_Codec
+{
+    <#
+    .SYNOPSIS
+    Verifies if the video compression is required or not
+    #>
+    Param($MediaInput,$MediaOut,$Type)
+    $FullInput = ('"' + $MediaInput.fullname + '"')
+    $MEDIAINFOCLI = "--Inform=Video;%Format%"
+    [string]$VideoFormat = (Run_Process -Filename $MEDIAINFO -Arguments $MEDIAINFOCLI,$FullInput -StdErr $true -StdOut $true)
+    if ($VideoFormat.trim().CompareTo("HEVC") -eq "0")
+        {
+            $ConvertMedia = $false
+        }else{
+            $ConvertMedia = $true
+        }
+    RenameMKV -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
+}
+
+#========================================================================================
+#============================== Rename MKV For Backup ===================================
+#========================================================================================
+function RenameMKV
+{
+    <#
+    .SYNOPSIS
+    Determines if Media Needs to be renamed
+    #>
+    
+   Param($MediaInput,$MediaOut,$Type)
+   
+   if ($MediaInput.Extension -eq ".mkv")
+   {
+        $OriginalInput = ("old_" + $MediaInput.name)
+        $MediaInput = Rename-Item $MediaInput.FullName $OriginalInput
+        #Write-Output $OriginalInput
+        
+        if (Test-Path $OriginalInput)
+        {        
+        $MediaInput = Get-Item $OriginalInput
+        } Else {
+        $MediaInput = Get-Item ($Season.FullName + "\" + $OriginalInput)
+        }
+        Compress_Media -MediaInput $MediaInput -MediaOut $MediaOut -Type $Type
+    }
 }
 
 #========================================================================================
@@ -265,25 +286,76 @@ function Compress_Media
     Compresses the provided media files into H265 inside of matroska
     #>
     Param($MediaInput,$MediaOut,$Type)
-    $argument = ('`"' + $MediaInput.fullname + '`"')
-    $CleanMKV = "`"--delete-attachment mime-type:image/jpeg --tags all: --edit info --set title=`""
-    $p = Start-Process $MKVPROPEDIT -ArgumentList "`"$Mediainput.Fullname`"","`"--delete-attachment mime-type:image/jpeg --tags all: --edit info --set title=`"" -wait -PassThru -NoNewWindow
     
-    $p.HasExited
-    $p.ExitCode
+    $FullInput = ('"' + $MediaInput.fullname + '"')
+    $CleanMKV = ('--delete-attachment mime-type:image/jpeg --tags all: --edit info --set title=')
+    $FFMPEGArg1 = ('-hide_banner -v error -i ' + $FullInput + ' -map 0 -c copy')
+    $TagArg1 = ('--tags all:' + '"' + $OutComment + '" ')
+    $TagArg2 = ('--attachment-name cover.jpg ')
+    $TagArg3 = ('--add-attachment ' + '"' + $Poster + '"')
     
-    
-    #write-output $argument
-    #write-output $CleanMKV
+#================================= Clean MKV Poster =====================================
+    if($MediaInput.extension -eq ".mkv")
+    { 
+        Run_Process -Filename $MKVPROPEDIT -Arguments $FullInput,$CleanMKV -StdErr $true -StdOut $false
+    }
 
-$argument = ('"' + $MediaInput.fullname + '"')
-$arg1 = " -i "
-$argument2 = "D:\Video\Test\test.mkv"
-#Start-Process $FFMPEG -ArgumentList $arg1,$Argument,$argument2 -wait -PassThru -NoNewWindow
-#write-output $test
-#write-output $argument
-#write-output $argument2
-#write-output $MediaOut
+#================================ Convert Media Content =================================  
+    if($ConvertMedia -eq $true)
+    {
+		$FFMPEGArg2 = ('-c:v libx265 -x265-params crf=21 -max_muxing_queue_size 9999')
+    }Else{
+		$FFMPEGArg2 = ('-c:v copy -max_muxing_queue_size 9999')
+	}
+    Write-Output ("Rebuilding " + $MediaOut)
+    Run_Process -Filename $FFMPEG -Arguments $FFMPEGArg1,$FFMPEGArg2,$MediaOut -StdErr $true -StdOut $false
+
+#===================================== Tag MKV File =====================================
+    Run_Process -Filename $MKVPROPEDIT -Arguments $MediaOut,$TagArg1,$TagArg2,$TagArg3 -StdErr $true -StdOut $false
+    #$p.HasExited
+    #$p.ExitCode #0-good 1-error
+    #& $MKVPROPEDIT $argument,$CleanMKV
+}
+
+#========================================================================================
+#=============================== Run Execution Commands =================================
+#========================================================================================
+function Run_Process
+{
+    <#
+    .SYNOPSIS
+    Executes scripts with Arguments
+    #>
+    Param($Filename,$Arguments,$StdErr,$StdOut)
+
+    $p = new-object System.Diagnostics.ProcessStartInfo
+    $p.Filename = $Filename
+    $p.Arguments = $Arguments
+    $p.RedirectStandardOutput = $StdOut
+    $p.RedirectStandardError = $StdErr
+    $p.UseShellExecute = $false
+    $p.CreateNoWindow = $true
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $p
+    $process.start() | Out-Null
+    while ($process.HasExited -ne $true){
+        if ($StdOut -eq $true){
+            [string] $stdout = $process.StandardOutput.ReadToEnd();
+                if ($stdOut.length -ne "0"){
+            Write-output $stdOut
+                }
+        }
+        if ($Stderr -eq $true){
+            [string] $stderr = $process.StandardError.ReadToEnd();
+            #[string]$stderr = $Process.StandardError.ReadLine();
+                if ($stderr.length -ne "0"){
+                    Write-output $stderr
+                }
+        }
+    }
+   $process.WaitForExit()
+   # write-output $process.HasExited
+    
 }
 
 #========================================================================================
@@ -312,6 +384,6 @@ function CleanupWorkingDir
 #=========================================================================================================================
 
 TraverseFolders -WorkingDir $StrHomeDir
-#CleanupWorkingDir
+CleanupWorkingDir
 
 #=========================================================================================================================
