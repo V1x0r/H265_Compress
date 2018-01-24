@@ -127,7 +127,7 @@ function ParseKodiNFO
        $VideoxmlOutput.WriteStartElement('Tags')
        if (Test-Path $MovieNFO)
           {
-          [xml]$MovieNFOXML = Get-Content $MovieNFO
+          [xml]$MovieNFOXML = Get-Content ($MediaInput.BaseName + ".nfo") 
           $MovieNFOArr = Select-XML -XML $MovieNFOXML -XPath "//movie"| Select-Object -ExpandProperty Node
           #$MovieNFOArr.actor.name # | Select-Object "title"
           foreach ($item in $array) 
@@ -237,21 +237,14 @@ function Check_Codec
     .SYNOPSIS
     Verifies if the video compression is required or not
     #>
+
     Param($MediaInput,$MediaOut,$Type)
     $FullInput = ('"' + $MediaInput.fullname + '"')
     $MEDIAINFOCLI = "--Inform=Video;%Format%"
-    $MEDIATime = "--inform=General;%Duration/String1%"
+    $MEDIATime = "--inform=General;%Duration/String3%"
     [string] $VideoFormat = (Run_Process -Filename $MEDIAINFO -Arguments $MEDIAINFOCLI,$FullInput -StdErr $false -StdOut $true)
     [string] $VideoTime = (Run_Process -Filename $MEDIAINFO -Arguments $MEDIATime,$FullInput -StdErr $false -StdOut $true)
-    if ($VideoTime -match "h")
-       {
-          $VidTimeArr = @(($VideoTime -Replace " h ","," -replace " min ","," -replace " s ","," -replace " ms").split(","))
-          $VidTimeSec = (([int]$VidTimeArr[0]*"60") + ([int]$VidTimeArr[1]*"60") + [int]$VidTimeArr[2])
-       } Else
-       {
-          $VidTimeArr = @(($VideoTime -Replace " min ","," -replace " s ","," -replace " ms").split(","))
-          $VidTimeSec = (([int]$VidTimeArr[0]*"60") + [int]$VidTimeArr[1])
-       }
+    $VidTimeSec = ([TimeSpan]::Parse($VideoTime).TotalSeconds)
     if ($VideoFormat.trim().CompareTo("HEVC") -eq "0")
        {
           $ConvertMedia = $false
@@ -360,7 +353,7 @@ function Run_Process
                 Where { $_ }) -replace("size",",") -replace("time",",") -replace("bitrate",",") |`
                 Where { $_ }) -replace("speed",",") -replace("x","") -replace("kbits/s","")).split(",")
                     foreach ($item in $stderrArr){
-                     clear-host
+                     #clear-host
                       $InputSize = [int64]($MediaInput.length.ToString())
                           If ($InputSize -lt 1MB)
                           {
@@ -389,58 +382,44 @@ function Run_Process
                              $SizeType = 1GB
                              $ByteType = "GB"
                           }
-                       $RemainingTime = [int]($VidTimesec/$stderrarr[6]).toString(".00")
-                          If ($RemainingTime -lt "59")
-                          {
-                             $TimeFormat = " Seconds"
-                             $timeSpan = New-Timespan -Seconds $RemainingTime
-                             $TimeRemaining = '{0:00}:{1:00}:{2:00}' -f $timeSpan.Hours,$timeSpan.Minutes,$timeSpan.Seconds
-                          }ElseIf ($RemainingTime -ge "60" -and $RemainingTime -lt "119")
-                          {
-                             $TimeFormat = " Minutes"
-                             $timeSpan = New-Timespan -Seconds $RemainingTime
-                             $TimeRemaining = '{0:00}:{1:00}:{2:00}' -f $timeSpan.Hours,$timeSpan.Minutes,$timeSpan.Secondss
-                          }ElseIf ($RemainingTime -ge "120")
-                          {
-                             $TimeFormat = " Hours"
-                             $timeSpan = New-Timespan -Seconds $RemainingTime
-                             $TimeRemaining = '{0:00}:{1:00}:{2:00}' -f $timeSpan.Hours,$timeSpan.Minutes,$timeSpan.Seconds
-                          }
-                          
-                     write-output ("Rebuilding:" + $MediaInput.name) ("XML:" + $NFOInfo) ("Poster:" + $PosterInfo)`
-                                ("Start: " + $StartTime) ("Original Size:" + ($InputSize/$InputSizeType).ToString(".00") + $InputByteType)`
-                                ("Size:" + ($stderrarr[3]/$SizeType).ToString(".00") + $ByteType) ($stderrarr[6] + ":Speed") ("Remaining:" + $TimeRemaining)
+                          $CompletedTime = ([TimeSpan]::Parse($StdErrArr[4]).TotalSeconds)
+                          $RemainingTime = [int](($VidTimesec-$CompletedTime)/$stderrarr[6]).toString(".00")
+                          $timeSpan = New-Timespan -Seconds $RemainingTime
+                          $TimeRemaining = '{0:00}:{1:00}:{2:00}' -f $timeSpan.Hours,$timeSpan.Minutes,$timeSpan.Seconds
+                    StatusBar
                     }
              } 
          } 
           if ($StdOut -eq $true){
                 if ($stdOut.length -ne "0"){
-                    [string] $stdout = $process.StandardOutput.ReadToEnd();
-                    [string]$stdOutLine = $Process.StandardOutput.ReadLine();
+                    [string]$stdout = $process.StandardOutput.ReadToEnd();
                     Write-output $stdOut
                     }
           }
        }
    $process.WaitForExit()
-   # write-output $process.HasExited
+   #  Time Left / EncSpeed
+   #0 Frame
+   #1 FPS
+   #2 Q
+   #3 Size
+   #4 Amount Time Process (in Film)
+   #5 Bitrate
+   #6 Speed Writing
 }
 
 #========================================================================================
 #================================== Status Bar Update ===================================
 #========================================================================================
-function StatusBar
+function StatusBar()
 {
     <#
     .SYNOPSIS
     Print and Update Status Bar
     #>
-    Param($FileCount)
-    For($Step = 1; $Step++)
-    {
-    Write-Progress -Activity "Rebuilding:" -status ($MediaInput.name) -percentComplete ($Step / $FileCount * 100)
-    #Write-Progress -Activity $Activity -Status ($MediaInput.name) -CurrentOperation " " -PercentComplete ($Step / $TotalSteps * 100)
-
-    }
+    Write-Progress -Activity ("Rebuilding:" + $MediaInput.name + " Started At: " + $StartTime) -status ("Original Size: " + (($InputSize/$InputSizeType).ToString(".00")`
+     + $InputByteType) + (" / New Size: " + ($stderrarr[3]/$SizeType).ToString(".00") + $ByteType) + (" / Current Speed: " + $stderrarr[6])`
+     + (" / Remaining Time: " + $TimeRemaining) + (" / Percent comp: " + (($CompletedTime / $VidTimeSec) * 100).tostring(".00"))) -percentComplete (($CompletedTime / $VidTimeSec) * 100)
 }
 
 #========================================================================================
@@ -458,21 +437,17 @@ function CleanupWorkingDir
           { 
              Remove-Item -Path $StrResourceDir -Force -Recurse
           }
-       if (Test-Path $MainScript) 
-          {
-             Remove-Item -Path $MainScript -Force
-          }
        if (Test-Path $OutComment)
           {
              Remove-Item -Path $OutComment -Force
           }
+       if (Test-Path $MainScript) 
+          {
+             Remove-Item -Path $MainScript -Force
+          }
 }
-
-#=========================================================================================================================
-
 #=========================================================================================================================
 
 TraverseFolders -WorkingDir $StrHomeDir
-#SCleanupWorkingDir
-#Write-Progress -Activity "Completed" -Completed
+CleanupWorkingDir
 #=========================================================================================================================
