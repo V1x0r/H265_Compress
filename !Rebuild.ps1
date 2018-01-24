@@ -382,7 +382,7 @@ function Run_Process
                              $SizeType = 1GB
                              $ByteType = "GB"
                           }
-                          $CompletedTime = ([TimeSpan]::Parse($StdErrArr[4]).TotalSeconds)
+                          $CompletedTime = [int64]([TimeSpan]::Parse($StdErrArr[4]).TotalSeconds)
                           $RemainingTime = [int](($VidTimesec-$CompletedTime)/$stderrarr[6]).toString(".00")
                           $timeSpan = New-Timespan -Seconds $RemainingTime
                           $TimeRemaining = '{0:00}:{1:00}:{2:00}' -f $timeSpan.Hours,$timeSpan.Minutes,$timeSpan.Seconds
@@ -446,6 +446,9 @@ function CleanupWorkingDir
              Remove-Item -Path $MainScript -Force
           }
 }
+
+#=========================================================================================================================
+
 #=========================================================================================================================
 
 TraverseFolders -WorkingDir $StrHomeDir
